@@ -22,7 +22,7 @@ enum BDPMError: LocalizedError {
 
 /// Accès en lecture seule à la base BDPM (résolution CIP13 → médicament, hors-ligne).
 /// Priorité au snapshot rafraîchi dans Application Support (M9), sinon celui du bundle.
-final class BDPMDatabase: Sendable {
+nonisolated final class BDPMDatabase: Sendable {
     private let queue: DatabaseQueue
 
     nonisolated static let nomFichier = "bdpm.sqlite"
