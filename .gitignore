@@ -1,0 +1,21 @@
+# Xcode (le .xcodeproj est généré par XcodeGen, jamais versionné)
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+build/
+.build/
+*.xcresult
+
+# SPM
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Outils
+Tools/.cache/
+__pycache__/
+
+# Secrets éventuels
+*.p12
+*.mobileprovision
