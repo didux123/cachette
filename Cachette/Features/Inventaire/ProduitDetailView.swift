@@ -30,7 +30,7 @@ struct ProduitDetailView: View {
         List {
             Section {
                 HStack {
-                    Text(produit.type.symbole).font(.largeTitle)
+                    Text(produit.symbole).font(.largeTitle)
                     VStack(alignment: .leading) {
                         Text(produit.nom).font(CachetteTypography.titre)
                         Text("\(produit.stockTotal) unité(s) au total")

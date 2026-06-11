@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import TipKit
 
 /// Onglet « Réserves » : le stock, par lieu ou en vue totale.
 struct InventaireView: View {
@@ -18,9 +17,19 @@ struct InventaireView: View {
     @State private var produitPourRangement: Produit?
     @State private var messageErreur: String?
 
+    // Tuto interactif du premier lancement.
+    @AppStorage("tutorielTermine") private var tutorielTermine = false
+    @State private var etapeTuto: EtapeTuto?
+    @State private var baselineReceptions = 0
+    @State private var baselineUsages = 0
+
+    /// Vue « Total » : tous les produits suivis. Vue par lieu : tous aussi
+    /// (même à 0 ici), pour que le réassort se fasse d'un + sur la ligne.
     private var produitsVisibles: [Produit] {
         guard let lieu = lieuSelectionne else { return produits }
-        return produits.filter { $0.stock(dans: lieu) > 0 }
+        return produits.sorted {
+            ($0.stock(dans: lieu) > 0 ? 0 : 1, $0.nom) < ($1.stock(dans: lieu) > 0 ? 0 : 1, $1.nom)
+        }
     }
 
     @AppStorage(ReglagesCles.fenetrePeremptionJours)
@@ -30,14 +39,21 @@ struct InventaireView: View {
         MascotteEngine.etat(produits: produits, fenetrePeremptionJours: fenetrePeremption)
     }
 
+    private var nbReceptions: Int {
+        produits.flatMap(\.mouvements).count(where: { $0.motif == .reception })
+    }
+
+    private var nbUsages: Int {
+        produits.flatMap(\.mouvements).count(where: { $0.motif == .usage })
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 MascotteBanner(etat: etatMascotte)
                     .padding(.top, 4)
-                TipView(TipPucesLieux())
-                    .padding(.horizontal)
                 selecteurLieu
+                    .cibleTuto(.lieux)
                 if produitsVisibles.isEmpty {
                     emptyState
                 } else {
@@ -67,7 +83,6 @@ struct InventaireView: View {
                     } label: {
                         Label("Je pars…", systemImage: "figure.walk.departure")
                     }
-                    .popoverTip(TipJePars())
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -84,7 +99,6 @@ struct InventaireView: View {
                     } label: {
                         Label("Ajouter", systemImage: "plus")
                     }
-                    .popoverTip(TipAjouter())
                 }
             }
             .sheet(isPresented: $jeParsPresente) {
@@ -112,8 +126,79 @@ struct InventaireView: View {
             } message: {
                 Text(messageErreur ?? "")
             }
+            .overlayPreferenceValue(CibleTutoKey.self) { ancres in
+                GeometryReader { proxy in
+                    if let etape = etapeTuto {
+                        TutorielOverlay(
+                            etape: etape,
+                            cadre: etape.cible.flatMap { cible in
+                                ancres[cible].map { proxy[$0] }
+                            },
+                            onBouton: { avancerTuto(depuis: etape) },
+                            onPasser: { terminerTuto() }
+                        )
+                    }
+                }
+            }
+            .onAppear { demarrerTutoSiNecessaire() }
+            .onChange(of: produits.count) { _, _ in
+                if etapeTuto == .ajouterProduit, !produits.isEmpty {
+                    avancerTuto(depuis: .ajouterProduit)
+                }
+            }
+            .onChange(of: lieuSelectionne) { _, nouveau in
+                if etapeTuto == .choisirLieu, nouveau != nil {
+                    avancerTuto(depuis: .choisirLieu)
+                }
+            }
+            .onChange(of: nbReceptions) { _, nouveau in
+                if etapeTuto == .recevoir, nouveau > baselineReceptions {
+                    avancerTuto(depuis: .recevoir)
+                }
+            }
+            .onChange(of: nbUsages) { _, nouveau in
+                if etapeTuto == .consommer, nouveau > baselineUsages {
+                    avancerTuto(depuis: .consommer)
+                }
+            }
         }
     }
+
+    // MARK: - Tuto
+
+    private func demarrerTutoSiNecessaire() {
+        guard !tutorielTermine, etapeTuto == nil else { return }
+        baselineReceptions = nbReceptions
+        baselineUsages = nbUsages
+        etapeTuto = .bienvenue
+    }
+
+    private func avancerTuto(depuis etape: EtapeTuto) {
+        switch etape {
+        case .bienvenue:
+            // Si le catalogue de l'onboarding a déjà des produits, on saute la création.
+            etapeTuto = produits.isEmpty ? .ajouterProduit : .choisirLieu
+        case .ajouterProduit:
+            etapeTuto = .choisirLieu
+        case .choisirLieu:
+            baselineReceptions = nbReceptions
+            etapeTuto = .recevoir
+        case .recevoir:
+            baselineUsages = nbUsages
+            etapeTuto = .consommer
+        case .consommer:
+            etapeTuto = .fin
+        case .fin:
+            terminerTuto()
+        }
+    }
+
+    private func terminerTuto() {
+        tutorielTermine = true
+        etapeTuto = nil
+    }
+
+    // MARK: - Sous-vues
 
     private var selecteurLieu: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -134,23 +219,30 @@ struct InventaireView: View {
 
     private var listeProduits: some View {
         List {
-            TipView(TipPlusMoins())
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
             ForEach(produitsVisibles) { produit in
-                NavigationLink {
-                    ProduitDetailView(produit: produit)
-                } label: {
-                    ProduitRow(
-                        produit: produit,
-                        lieu: lieuSelectionne,
-                        onMoins: lieuSelectionne.map { lieu in { retirer(produit, de: lieu) } },
-                        onPlus: lieuSelectionne.map { lieu in { ajouter(produit, dans: lieu) } }
-                    )
-                }
+                ligne(produit)
             }
         }
         .scrollContentBackground(.hidden)
+    }
+
+    @ViewBuilder
+    private func ligne(_ produit: Produit) -> some View {
+        let row = NavigationLink {
+            ProduitDetailView(produit: produit)
+        } label: {
+            ProduitRow(
+                produit: produit,
+                lieu: lieuSelectionne,
+                onMoins: lieuSelectionne.map { lieu in { retirer(produit, de: lieu) } },
+                onPlus: lieuSelectionne.map { lieu in { ajouter(produit, dans: lieu) } }
+            )
+        }
+        if produit.id == produitsVisibles.first?.id {
+            row.cibleTuto(.ligne)
+        } else {
+            row
+        }
     }
 
     private var emptyState: some View {
@@ -162,6 +254,7 @@ struct InventaireView: View {
         ) {
             creationProduitPresentee = true
         }
+        .cibleTuto(.ajouter)
     }
 
     private func retirer(_ produit: Produit, de lieu: Lieu) {
@@ -228,7 +321,7 @@ private struct ProduitRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(produit.type.symbole)
+            Text(produit.symbole)
                 .font(.title3)
             VStack(alignment: .leading, spacing: 2) {
                 Text(produit.nom)

@@ -39,6 +39,8 @@ final class Produit {
     @Attribute(.unique) var id: UUID
     var nom: String
     var typeRaw: String
+    /// Emoji choisi par l'utilisateur ; à défaut, celui du type.
+    var emoji: String?
     /// Code CIP13 si le produit vient d'un scan de boîte française.
     var cip13: String?
     /// Code CIS de la BDPM (référence stable du médicament).
@@ -63,6 +65,12 @@ final class Produit {
         set { typeRaw = newValue.rawValue }
     }
 
+    /// Symbole affiché partout : l'emoji perso s'il existe, sinon celui du type.
+    var symbole: String {
+        if let emoji, !emoji.isEmpty { return emoji }
+        return type.symbole
+    }
+
     /// Stock total tous lieux confondus. (Propriété calculée — jamais dans un #Predicate.)
     var stockTotal: Int {
         lots.reduce(0) { $0 + $1.quantite }
@@ -75,6 +83,7 @@ final class Produit {
     init(
         nom: String,
         type: TypeProduit = .autre,
+        emoji: String? = nil,
         cip13: String? = nil,
         refBDPMCIS: String? = nil,
         conditionnement: Int = 1,
@@ -83,6 +92,7 @@ final class Produit {
         self.id = UUID()
         self.nom = nom
         self.typeRaw = type.rawValue
+        self.emoji = emoji
         self.cip13 = cip13
         self.refBDPMCIS = refBDPMCIS
         self.conditionnement = max(1, conditionnement)

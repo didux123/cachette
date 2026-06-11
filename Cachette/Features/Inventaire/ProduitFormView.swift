@@ -13,6 +13,7 @@ struct ProduitFormView: View {
 
     @State private var nom = ""
     @State private var type: TypeProduit = .medicament
+    @State private var emoji = "💊"
     @State private var conditionnement = 1
     @State private var seuilActif = false
     @State private var seuil = 5
@@ -21,7 +22,11 @@ struct ProduitFormView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Nom (ex. Stylo insuline rapide)", text: $nom)
+                    HStack {
+                        Text(emoji)
+                        TextField("Nom (ex. Stylo insuline rapide)", text: $nom)
+                    }
+                    EmojiPickerRow(emoji: $emoji)
                     Picker("Type", selection: $type) {
                         ForEach(TypeProduit.allCases) { t in
                             Text("\(t.symbole) \(t.libelle)").tag(t)
@@ -60,6 +65,7 @@ struct ProduitFormView: View {
             let produit = try StockService(contexte: contexte).creerProduit(
                 nom: nom.trimmingCharacters(in: .whitespaces),
                 type: type,
+                emoji: emoji.isEmpty ? nil : emoji,
                 conditionnement: conditionnement,
                 seuilStockBas: seuilActif ? seuil : nil
             )

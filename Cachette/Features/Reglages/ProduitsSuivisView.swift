@@ -26,7 +26,7 @@ struct ProduitsSuivisView: View {
                                 ProduitDetailView(produit: produit)
                             } label: {
                                 HStack {
-                                    Text(produit.type.symbole)
+                                    Text(produit.symbole)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(produit.nom)
                                             .font(CachetteTypography.corps.weight(.medium))

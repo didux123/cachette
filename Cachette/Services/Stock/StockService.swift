@@ -62,6 +62,7 @@ struct StockService {
     func creerProduit(
         nom: String,
         type: TypeProduit,
+        emoji: String? = nil,
         cip13: String? = nil,
         refBDPMCIS: String? = nil,
         conditionnement: Int = 1,
@@ -70,6 +71,7 @@ struct StockService {
         let produit = Produit(
             nom: nom,
             type: type,
+            emoji: emoji,
             cip13: cip13,
             refBDPMCIS: refBDPMCIS,
             conditionnement: conditionnement,
