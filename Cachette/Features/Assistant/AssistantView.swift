@@ -32,18 +32,22 @@ struct AssistantView: View {
                 barreSaisie
             }
             .fondCachette()
-            .navigationTitle("Assistant")
+            .navigationTitle("Cachette")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Petit bouton au-dessus du clavier pour le ranger.
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button {
-                        champFocalise = false
-                    } label: {
-                        Image(systemName: "keyboard.chevron.compact.down")
+                // La mascotte en personne dans la barre de titre.
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 7) {
+                        Image("mascotte-sereine")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 30)
+                        Text("Cachette")
+                            .font(CachetteTypography.titre)
+                            .foregroundStyle(CachetteColors.brunNoisette)
                     }
-                    .tint(CachetteColors.brunNoisette)
-                    .accessibilityLabel("Fermer le clavier")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Cachette, ton assistante")
                 }
             }
             .onChange(of: dictee.transcription) { _, nouveau in

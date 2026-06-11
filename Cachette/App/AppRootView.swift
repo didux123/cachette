@@ -18,7 +18,7 @@ struct AppRootView: View {
             Tab("Réserves", systemImage: "shippingbox.fill") {
                 InventaireView()
             }
-            Tab("Assistant", systemImage: "waveform") {
+            Tab("Cachette", systemImage: "waveform") {
                 AssistantView()
             }
             Tab("Coffre", systemImage: "lock.doc.fill") {
