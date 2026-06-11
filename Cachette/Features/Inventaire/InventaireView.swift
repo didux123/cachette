@@ -11,6 +11,7 @@ struct InventaireView: View {
     @State private var lieuSelectionne: Lieu?
     @State private var creationProduitPresentee = false
     @State private var historiquePresente = false
+    @State private var jeParsPresente = false
     @State private var messageErreur: String?
 
     private var produitsVisibles: [Produit] {
@@ -56,11 +57,21 @@ struct InventaireView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
+                        jeParsPresente = true
+                    } label: {
+                        Label("Je pars…", systemImage: "figure.walk.departure")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
                         creationProduitPresentee = true
                     } label: {
                         Label("Ajouter un produit", systemImage: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $jeParsPresente) {
+                JeParsView()
             }
             .sheet(isPresented: $creationProduitPresentee) {
                 ProduitFormView(lieuInitial: lieuSelectionne)
