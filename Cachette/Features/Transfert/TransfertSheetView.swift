@@ -131,6 +131,10 @@ struct AjoutStockSheetView: View {
                 if peremptionActive {
                     DatePicker("Périme le", selection: $datePeremption, displayedComponents: .date)
                 }
+                BoutonLectureDate { date in
+                    peremptionActive = true
+                    datePeremption = date
+                }
             }
             .navigationTitle("J'ai reçu")
             .navigationBarTitleDisplayMode(.inline)
