@@ -18,8 +18,8 @@ struct AppRootView: View {
             Tab("Réserves", systemImage: "shippingbox.fill") {
                 InventaireView()
             }
-            Tab("Scanner", systemImage: "barcode.viewfinder") {
-                ScanView()
+            Tab("Assistant", systemImage: "waveform") {
+                AssistantView()
             }
             Tab("Coffre", systemImage: "lock.doc.fill") {
                 CoffreView()

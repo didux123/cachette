@@ -50,6 +50,7 @@ struct ProduitsSuivisView: View {
                 }
             }
         }
+        .fondCachette(mascotte: .contente)
         .navigationTitle("Mes produits suivis")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

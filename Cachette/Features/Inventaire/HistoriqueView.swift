@@ -41,6 +41,7 @@ struct HistoriqueView: View {
                     }
                 }
             }
+            .fondCachette(mascotte: .vigilante, alignement: .bottomLeading)
             .navigationTitle("Historique")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

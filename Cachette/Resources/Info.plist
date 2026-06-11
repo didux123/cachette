@@ -28,6 +28,10 @@
 	<string>Cachette utilise la caméra pour scanner les codes des boîtes de médicaments, lire les dates de péremption et photographier vos documents. Tout reste sur votre téléphone.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID protège l'accès à votre coffre à documents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Le micro permet de dicter tes mouvements de stock à l'assistant (« j'ai utilisé 2 bandelettes »). La voix est traitée localement.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>La reconnaissance vocale transforme ta dictée en texte pour l'assistant. Tout reste sur ton téléphone.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>

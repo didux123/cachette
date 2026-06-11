@@ -47,6 +47,7 @@ struct CoffreView: View {
                     contenu
                 }
             }
+            .fondCachette(mascotte: .auRepos)
             .navigationTitle("Coffre")
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background {

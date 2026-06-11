@@ -64,7 +64,7 @@ struct ProduitDetailView: View {
                                 Image(systemName: "plus").frame(width: 34, height: 30)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.borderless)
                         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 8))
                         .foregroundStyle(CachetteColors.rouxCachette)
                     }
@@ -118,8 +118,15 @@ struct ProduitDetailView: View {
                 }
             }
         }
+        .fondCachette()
         .navigationTitle(produit.nom)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            NotificationCenter.default.post(name: .cachetteFicheProduitOuverte, object: nil)
+        }
+        .onDisappear {
+            NotificationCenter.default.post(name: .cachetteFicheProduitFermee, object: nil)
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {

@@ -27,6 +27,7 @@ struct LieuxListView: View {
                         }
                 }
             }
+            .fondCachette(mascotte: .sereine)
             .navigationTitle("Mes lieux")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

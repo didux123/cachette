@@ -37,6 +37,8 @@ targets:
           - UIInterfaceOrientationPortrait
         NSCameraUsageDescription: "Cachette utilise la caméra pour scanner les codes des boîtes de médicaments, lire les dates de péremption et photographier vos documents. Tout reste sur votre téléphone."
         NSFaceIDUsageDescription: "Face ID protège l'accès à votre coffre à documents."
+        NSMicrophoneUsageDescription: "Le micro permet de dicter tes mouvements de stock à l'assistant (« j'ai utilisé 2 bandelettes »). La voix est traitée localement."
+        NSSpeechRecognitionUsageDescription: "La reconnaissance vocale transforme ta dictée en texte pour l'assistant. Tout reste sur ton téléphone."
         BGTaskSchedulerPermittedTaskIdentifiers:
           - com.didux.cachette.bdpmRefresh
         UIBackgroundModes:

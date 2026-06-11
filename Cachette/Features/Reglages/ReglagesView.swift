@@ -66,6 +66,7 @@ struct ReglagesView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .fondCachette(mascotte: .sereine, alignement: .bottomLeading)
             .navigationTitle("Réglages")
         }
     }

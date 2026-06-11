@@ -27,6 +27,7 @@ struct ScanView: View {
                     saisieManuelle
                 }
             }
+            .fondCachette(mascotte: .vigilante, alignement: .bottomLeading)
             .navigationTitle("Scanner une boîte")
             .sheet(item: $resultat) { resultat in
                 ScanResultSheet(resultat: resultat)

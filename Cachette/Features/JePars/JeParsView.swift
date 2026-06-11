@@ -53,6 +53,7 @@ struct JeParsView: View {
                     formulaire
                 }
             }
+            .fondCachette(mascotte: .enVoyage)
             .navigationTitle("Je pars…")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

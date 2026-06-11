@@ -22,6 +22,11 @@ struct InventaireView: View {
     @State private var etapeTuto: EtapeTuto?
     @State private var baselineReceptions = 0
     @State private var baselineUsages = 0
+    /// La fiche produit est ouverte : on suspend l'overlay du tuto.
+    @State private var ficheOuverte = false
+    /// Les étapes effectivement jouées (l'étape création saute si la liste
+    /// de l'onboarding n'est pas vide).
+    @State private var fluxTuto: [EtapeTuto] = []
 
     /// Vue « Total » : tous les produits suivis. Vue par lieu : tous aussi
     /// (même à 0 ici), pour que le réassort se fasse d'un + sur la ligne.
@@ -60,7 +65,7 @@ struct InventaireView: View {
                     listeProduits
                 }
             }
-            .background(CachetteColors.creme.opacity(0.5))
+            .fondCachette()
             .navigationTitle(lieuSelectionne?.nom ?? "Toutes mes réserves")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -127,10 +132,11 @@ struct InventaireView: View {
                 Text(messageErreur ?? "")
             }
             .overlayPreferenceValue(CibleTutoKey.self) { ancres in
-                GeometryReader { proxy in
-                    if let etape = etapeTuto {
+                if let etape = etapeTuto, !ficheOuverte {
+                    GeometryReader { proxy in
                         TutorielOverlay(
                             etape: etape,
+                            flux: fluxTuto,
                             cadre: etape.cible.flatMap { cible in
                                 ancres[cible].map { proxy[$0] }
                             },
@@ -138,6 +144,7 @@ struct InventaireView: View {
                             onPasser: { terminerTuto() }
                         )
                     }
+                    .ignoresSafeArea()
                 }
             }
             .onAppear { demarrerTutoSiNecessaire() }
@@ -161,6 +168,15 @@ struct InventaireView: View {
                     avancerTuto(depuis: .consommer)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .cachetteFicheProduitOuverte)) { _ in
+                ficheOuverte = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cachetteFicheProduitFermee)) { _ in
+                ficheOuverte = false
+                if etapeTuto == .ouvrirFiche {
+                    avancerTuto(depuis: .ouvrirFiche)
+                }
+            }
         }
     }
 
@@ -168,29 +184,44 @@ struct InventaireView: View {
 
     private func demarrerTutoSiNecessaire() {
         guard !tutorielTermine, etapeTuto == nil else { return }
+        fluxTuto = produits.isEmpty
+            ? [.bienvenue, .ajouterProduit, .choisirLieu, .recevoir, .consommer, .ouvrirFiche, .fin]
+            : [.bienvenue, .choisirLieu, .recevoir, .consommer, .ouvrirFiche, .fin]
         baselineReceptions = nbReceptions
         baselineUsages = nbUsages
         etapeTuto = .bienvenue
     }
 
     private func avancerTuto(depuis etape: EtapeTuto) {
-        switch etape {
-        case .bienvenue:
-            // Si le catalogue de l'onboarding a déjà des produits, on saute la création.
-            etapeTuto = produits.isEmpty ? .ajouterProduit : .choisirLieu
-        case .ajouterProduit:
-            etapeTuto = .choisirLieu
-        case .choisirLieu:
-            baselineReceptions = nbReceptions
-            etapeTuto = .recevoir
-        case .recevoir:
-            baselineUsages = nbUsages
-            etapeTuto = .consommer
-        case .consommer:
-            etapeTuto = .fin
-        case .fin:
+        guard let index = fluxTuto.firstIndex(of: etape), index + 1 < fluxTuto.count else {
             terminerTuto()
+            return
         }
+        let suivante = fluxTuto[index + 1]
+
+        // Préparations propres à certaines étapes.
+        switch suivante {
+        case .recevoir:
+            injecterStockDEssaiSiBesoin()
+            baselineReceptions = nbReceptions
+        case .consommer:
+            baselineUsages = nbUsages
+        default:
+            break
+        }
+        etapeTuto = suivante
+    }
+
+    /// Pour que +/− aient du sens dès le tuto : on range 3 unités d'essai du
+    /// premier produit dans le lieu choisi s'il est vide (motif « ajustement »,
+    /// visible et assumé dans l'historique).
+    private func injecterStockDEssaiSiBesoin() {
+        guard let lieu = lieuSelectionne,
+              let premier = produitsVisibles.first,
+              premier.stock(dans: lieu) == 0
+        else { return }
+        try? StockService(contexte: contexte)
+            .ajouterStock(produit: premier, lieu: lieu, quantite: 3, motif: .ajustement)
     }
 
     private func terminerTuto() {
@@ -343,19 +374,23 @@ private struct ProduitRow: View {
             }
             Spacer()
             if let onMoins, let onPlus {
+                // `.borderless` (et non `.plain`) : dans une ligne NavigationLink,
+                // c'est ce qui empêche la ligne d'avaler le tap des boutons.
                 HStack(spacing: 0) {
                     Button(action: onMoins) {
                         Image(systemName: "minus")
-                            .frame(width: 36, height: 32)
+                            .frame(width: 40, height: 36)
+                            .contentShape(Rectangle())
                     }
                     .disabled(quantite == 0)
                     Divider().frame(height: 18)
                     Button(action: onPlus) {
                         Image(systemName: "plus")
-                            .frame(width: 36, height: 32)
+                            .frame(width: 40, height: 36)
+                            .contentShape(Rectangle())
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 8))
                 .foregroundStyle(CachetteColors.rouxCachette)
             }
