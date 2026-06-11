@@ -26,8 +26,12 @@ final class Dictee {
     func demarrer() async {
         guard !enEcoute else { return }
 
+        // ⚠️ Callback livré sur une file d'arrière-plan : @Sendable obligatoire
+        // (sinon isolation MainActor héritée → EXC_BREAKPOINT au premier appel).
         let statut = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+            SFSpeechRecognizer.requestAuthorization { @Sendable statut in
+                continuation.resume(returning: statut)
+            }
         }
         guard statut == .authorized else {
             messageErreur = "Autorise la reconnaissance vocale dans Réglages > Cachette."

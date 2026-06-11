@@ -33,6 +33,19 @@ struct AssistantView: View {
             }
             .fondCachette()
             .navigationTitle("Assistant")
+            .toolbar {
+                // Petit bouton au-dessus du clavier pour le ranger.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button {
+                        champFocalise = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                    }
+                    .tint(CachetteColors.brunNoisette)
+                    .accessibilityLabel("Fermer le clavier")
+                }
+            }
             .onChange(of: dictee.transcription) { _, nouveau in
                 if !nouveau.isEmpty { saisie = nouveau }
             }
@@ -61,6 +74,7 @@ struct AssistantView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: messages.count) { _, _ in
                 if let dernier = messages.last?.id {
                     withAnimation { defileur.scrollTo(dernier, anchor: .bottom) }
@@ -231,6 +245,7 @@ struct AssistantView: View {
         let phrase = saisie.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         saisie = ""
+        champFocalise = false // range le clavier : la réponse reste visible
         messages.append(MessageChat(role: .utilisateur, texte: phrase))
 
         let intentions = CommandeInterpreteur.interpreter(
