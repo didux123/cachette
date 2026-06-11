@@ -114,6 +114,9 @@ struct TutorielOverlay: View {
     /// Cadre de la cible dans le repère plein écran (nil = plein voile).
     let cadre: CGRect?
     let onBouton: () -> Void
+    /// Saute uniquement l'étape courante (filet de secours : le tuto ne doit
+    /// JAMAIS pouvoir coincer l'utilisateur).
+    let onPasserEtape: () -> Void
     let onPasser: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -160,37 +163,39 @@ struct TutorielOverlay: View {
     }
 
     /// 4 zones invisibles qui avalent les touches PARTOUT sauf la découpe.
+    /// ⚠️ Le `contentShape` doit être posé AVANT `.position` : le conteneur
+    /// créé par `.position` occupe tout l'écran, et un contentShape posé
+    /// après rendrait chaque bande tactile sur TOUT l'écran (trou bouché).
     @ViewBuilder
     private func bloqueurs(autour decoupe: CGRect, dans taille: CGSize) -> some View {
-        let bloqueur = Color.white.opacity(0.001)
-        Group {
-            bloqueur
-                .frame(width: taille.width, height: max(0, decoupe.minY))
-                .position(x: taille.width / 2, y: max(0, decoupe.minY) / 2)
-            bloqueur
-                .frame(width: taille.width, height: max(0, taille.height - decoupe.maxY))
-                .position(x: taille.width / 2, y: decoupe.maxY + max(0, taille.height - decoupe.maxY) / 2)
-            bloqueur
-                .frame(width: max(0, decoupe.minX), height: decoupe.height)
-                .position(x: max(0, decoupe.minX) / 2, y: decoupe.midY)
-            bloqueur
-                .frame(width: max(0, taille.width - decoupe.maxX), height: decoupe.height)
-                .position(x: decoupe.maxX + max(0, taille.width - decoupe.maxX) / 2, y: decoupe.midY)
-        }
-        .contentShape(Rectangle())
+        bande(largeur: taille.width, hauteur: max(0, decoupe.minY))
+            .position(x: taille.width / 2, y: max(0, decoupe.minY) / 2)
+        bande(largeur: taille.width, hauteur: max(0, taille.height - decoupe.maxY))
+            .position(x: taille.width / 2, y: decoupe.maxY + max(0, taille.height - decoupe.maxY) / 2)
+        bande(largeur: max(0, decoupe.minX), hauteur: decoupe.height)
+            .position(x: max(0, decoupe.minX) / 2, y: decoupe.midY)
+        bande(largeur: max(0, taille.width - decoupe.maxX), hauteur: decoupe.height)
+            .position(x: decoupe.maxX + max(0, taille.width - decoupe.maxX) / 2, y: decoupe.midY)
+    }
+
+    private func bande(largeur: CGFloat, hauteur: CGFloat) -> some View {
+        Color.white.opacity(0.001)
+            .frame(width: max(0, largeur), height: max(0, hauteur))
+            .contentShape(Rectangle())
     }
 
     private func anneau(_ decoupe: CGRect) -> some View {
+        // Ombre fixe (animer un rayon d'ombre coûte cher) ; seul le scale pulse.
         RoundedRectangle(cornerRadius: 16)
             .strokeBorder(CachetteColors.ambre, lineWidth: 3)
-            .shadow(color: CachetteColors.ambre.opacity(0.8), radius: pulse ? 14 : 5)
+            .shadow(color: CachetteColors.ambre.opacity(0.7), radius: 9)
             .frame(width: decoupe.width, height: decoupe.height)
-            .position(x: decoupe.midX, y: decoupe.midY)
-            .scaleEffect(pulse ? 1.025 : 1.0)
+            .scaleEffect(pulse ? 1.03 : 1.0)
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.85).repeatForever(autoreverses: true),
                 value: pulse
             )
+            .position(x: decoupe.midX, y: decoupe.midY)
             .allowsHitTesting(false)
     }
 
@@ -216,6 +221,8 @@ struct TutorielOverlay: View {
         // La carte se place dans la moitié opposée à la découpe.
         let cibleEnHaut = (decoupe?.midY ?? 0) < taille.height / 2
         let index = flux.firstIndex(of: etape) ?? 0
+        // Cible attendue mais introuvable : on offre une sortie franche.
+        let cibleIntrouvable = etape.cible != nil && decoupe == nil
 
         return VStack(spacing: 12) {
             MascotteView(etat: etape.mascotte, taille: 70)
@@ -246,9 +253,25 @@ struct TutorielOverlay: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(CachetteColors.rouxCachette)
+            } else if cibleIntrouvable {
+                Button {
+                    onPasserEtape()
+                } label: {
+                    Text("Continuer").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(CachetteColors.rouxCachette)
             }
-            Button("Passer la visite") {
-                onPasser()
+
+            HStack(spacing: 18) {
+                if etape.cible != nil, !cibleIntrouvable {
+                    Button("Passer cette étape") {
+                        onPasserEtape()
+                    }
+                }
+                Button("Quitter la visite") {
+                    onPasser()
+                }
             }
             .font(CachetteTypography.legende)
             .tint(CachetteColors.brunNoisette.opacity(0.7))

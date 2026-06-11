@@ -138,9 +138,19 @@ struct InventaireView: View {
                             etape: etape,
                             flux: fluxTuto,
                             cadre: etape.cible.flatMap { cible in
-                                ancres[cible].map { proxy[$0] }
+                                ancres[cible].map { ancre in
+                                    var cadre = proxy[ancre]
+                                    // L'ancre « ligne » est posée sur la List entière
+                                    // (les préférences ne remontent pas depuis ses
+                                    // cellules) : on n'éclaire que la première ligne.
+                                    if cible == .ligne {
+                                        cadre.size.height = min(cadre.height, 96)
+                                    }
+                                    return cadre
+                                }
                             },
                             onBouton: { avancerTuto(depuis: etape) },
+                            onPasserEtape: { passerEtape(etape) },
                             onPasser: { terminerTuto() }
                         )
                     }
@@ -224,6 +234,16 @@ struct InventaireView: View {
             .ajouterStock(produit: premier, lieu: lieu, quantite: 3, motif: .ajustement)
     }
 
+    /// Saute UNE étape (filet de secours) en préparant l'état attendu pour la suite.
+    private func passerEtape(_ etape: EtapeTuto) {
+        if etape == .choisirLieu, lieuSelectionne == nil {
+            // Sélectionner le lieu déclenche l'avancement via onChange.
+            lieuSelectionne = lieux.first
+            return
+        }
+        avancerTuto(depuis: etape)
+    }
+
     private func terminerTuto() {
         tutorielTermine = true
         etapeTuto = nil
@@ -251,29 +271,20 @@ struct InventaireView: View {
     private var listeProduits: some View {
         List {
             ForEach(produitsVisibles) { produit in
-                ligne(produit)
+                NavigationLink {
+                    ProduitDetailView(produit: produit)
+                } label: {
+                    ProduitRow(
+                        produit: produit,
+                        lieu: lieuSelectionne,
+                        onMoins: lieuSelectionne.map { lieu in { retirer(produit, de: lieu) } },
+                        onPlus: lieuSelectionne.map { lieu in { ajouter(produit, dans: lieu) } }
+                    )
+                }
             }
         }
         .scrollContentBackground(.hidden)
-    }
-
-    @ViewBuilder
-    private func ligne(_ produit: Produit) -> some View {
-        let row = NavigationLink {
-            ProduitDetailView(produit: produit)
-        } label: {
-            ProduitRow(
-                produit: produit,
-                lieu: lieuSelectionne,
-                onMoins: lieuSelectionne.map { lieu in { retirer(produit, de: lieu) } },
-                onPlus: lieuSelectionne.map { lieu in { ajouter(produit, dans: lieu) } }
-            )
-        }
-        if produit.id == produitsVisibles.first?.id {
-            row.cibleTuto(.ligne)
-        } else {
-            row
-        }
+        .cibleTuto(.ligne)
     }
 
     private var emptyState: some View {
@@ -332,6 +343,7 @@ private struct PuceLieu: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(CachetteColors.brunNoisette)
+        .accessibilityLabel(titre)
     }
 }
 
@@ -383,12 +395,14 @@ private struct ProduitRow: View {
                             .contentShape(Rectangle())
                     }
                     .disabled(quantite == 0)
+                    .accessibilityLabel("Utiliser une unité")
                     Divider().frame(height: 18)
                     Button(action: onPlus) {
                         Image(systemName: "plus")
                             .frame(width: 40, height: 36)
                             .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Ranger une unité")
                 }
                 .buttonStyle(.borderless)
                 .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 8))

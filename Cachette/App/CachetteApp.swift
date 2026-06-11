@@ -8,10 +8,19 @@ struct CachetteApp: App {
     @Environment(\.scenePhase) private var scenePhase
     private let container: ModelContainer
 
+    /// Lancé par les tests UI : store en mémoire + données déterministes.
+    private static let modeUITests = CommandLine.arguments.contains("-uitests")
+
     init() {
-        container = ModelContainerFactory.production()
+        container = Self.modeUITests
+            ? ModelContainerFactory.inMemory()
+            : ModelContainerFactory.production()
         do {
             try SeedService.seedSiNecessaire(contexte: container.mainContext)
+            if Self.modeUITests {
+                try StockService(contexte: container.mainContext)
+                    .creerProduit(nom: "Stylos test", type: .insuline)
+            }
         } catch {
             assertionFailure("Échec du seed des lieux par défaut : \(error)")
         }
@@ -23,9 +32,14 @@ struct CachetteApp: App {
         WindowGroup {
             AppRootView()
                 .task {
+                    guard !Self.modeUITests else { return }
                     // Filet de sécurité : les BGTask ne sont jamais garanties.
-                    _ = await BDPMRefreshService()
-                        .rafraichirSiPlusVieuxQue(BDPMRefreshService.seuilOpportunisteJours)
+                    // Détaché : l'ouverture de la base ne doit pas peser sur
+                    // le lancement (main thread).
+                    await Task.detached(priority: .utility) {
+                        _ = await BDPMRefreshService()
+                            .rafraichirSiPlusVieuxQue(BDPMRefreshService.seuilOpportunisteJours)
+                    }.value
                 }
         }
         .modelContainer(container)

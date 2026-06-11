@@ -59,6 +59,20 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
+  CachetteUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - Tests/CachetteUITests
+    dependencies:
+      - target: Cachette
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        # XCTestCase (Objective-C) est incompatible avec l'isolation
+        # MainActor par défaut : on garde l'isolation classique ici.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+
 schemes:
   Cachette:
     build:
@@ -71,3 +85,4 @@ schemes:
       gatherCoverageData: true
       targets:
         - CachetteTests
+        - CachetteUITests
