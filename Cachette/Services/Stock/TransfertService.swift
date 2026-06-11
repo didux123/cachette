@@ -17,6 +17,12 @@ enum TransfertError: LocalizedError, Equatable {
 struct TransfertService {
     let contexte: ModelContext
 
+    /// Sauvegarde puis signale la mutation (déclenche la réconciliation des alertes).
+    private func sauvegarder() throws {
+        try contexte.save()
+        NotificationCenter.default.post(name: .cachetteStockMute, object: nil)
+    }
+
     @discardableResult
     func transferer(
         produit: Produit,
@@ -72,7 +78,7 @@ struct TransfertService {
 
         // Sauvegarde unique : soit tout passe, soit rien (atomicité).
         do {
-            try contexte.save()
+            try sauvegarder()
         } catch {
             contexte.rollback()
             throw error

@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct AppRootView: View {
+    @Environment(\.modelContext) private var contexte
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         TabView {
             Tab("Réserves", systemImage: "shippingbox.fill") {
@@ -13,10 +16,18 @@ struct AppRootView: View {
                 PlaceholderScreen(titre: "Coffre", message: "Tes ordonnances, toujours sur toi.")
             }
             Tab("Réglages", systemImage: "gearshape.fill") {
-                PlaceholderScreen(titre: "Réglages", message: "Seuils, alertes et confidentialité.")
+                ReglagesView()
             }
         }
         .tint(CachetteColors.rouxCachette)
+        .onReceive(NotificationCenter.default.publisher(for: .cachetteStockMute)) { _ in
+            Task { await Alertes.reconcilier(contexte: contexte) }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await Alertes.reconcilier(contexte: contexte) }
+            }
+        }
     }
 }
 

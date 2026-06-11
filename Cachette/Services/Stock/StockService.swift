@@ -24,6 +24,12 @@ enum StockServiceError: LocalizedError, Equatable {
 struct StockService {
     let contexte: ModelContext
 
+    /// Sauvegarde puis signale la mutation (déclenche la réconciliation des alertes).
+    private func sauvegarder() throws {
+        try contexte.save()
+        NotificationCenter.default.post(name: .cachetteStockMute, object: nil)
+    }
+
     // MARK: - Lieux
 
     @discardableResult
@@ -31,13 +37,13 @@ struct StockService {
         let ordreMax = (try? contexte.fetch(FetchDescriptor<Lieu>()))?.map(\.ordre).max() ?? 0
         let lieu = Lieu(nom: nom, type: type, emoji: emoji, couleurHex: couleurHex, ordre: ordreMax + 1)
         contexte.insert(lieu)
-        try contexte.save()
+        try sauvegarder()
         return lieu
     }
 
     func renommerLieu(_ lieu: Lieu, nom: String) throws {
         lieu.nom = nom
-        try contexte.save()
+        try sauvegarder()
     }
 
     /// Refuse la suppression du lieu spécial « Sur moi » (P0-1) — garde-fou
@@ -47,7 +53,7 @@ struct StockService {
             throw StockServiceError.lieuSurMoiNonSupprimable
         }
         contexte.delete(lieu)
-        try contexte.save()
+        try sauvegarder()
     }
 
     // MARK: - Produits
@@ -70,13 +76,13 @@ struct StockService {
             seuilStockBas: seuilStockBas
         )
         contexte.insert(produit)
-        try contexte.save()
+        try sauvegarder()
         return produit
     }
 
     func supprimerProduit(_ produit: Produit) throws {
         contexte.delete(produit)
-        try contexte.save()
+        try sauvegarder()
     }
 
     // MARK: - Stock
@@ -103,7 +109,7 @@ struct StockService {
         lot.quantite += quantite
 
         contexte.insert(Mouvement(produit: produit, lieu: lieu, delta: quantite, motif: motif))
-        try contexte.save()
+        try sauvegarder()
         return lot
     }
 
@@ -125,7 +131,7 @@ struct StockService {
 
         consommer(quantite, surLots: disponibles)
         contexte.insert(Mouvement(produit: produit, lieu: lieu, delta: -quantite, motif: motif))
-        try contexte.save()
+        try sauvegarder()
     }
 
     // MARK: - Helpers internes (partagés avec TransfertService)
