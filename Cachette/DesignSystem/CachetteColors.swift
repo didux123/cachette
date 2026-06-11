@@ -17,6 +17,11 @@ enum CachetteColors {
 }
 
 extension Color {
+    /// Hex sans `#`, ex. "C8643C". Couleur de marque en repli si invalide.
+    init(hexString: String) {
+        self.init(hex: UInt32(hexString, radix: 16) ?? 0xC8643C)
+    }
+
     init(hex: UInt32) {
         self.init(
             red: Double((hex >> 16) & 0xFF) / 255,
