@@ -50,7 +50,10 @@ nonisolated enum CommandeInterpreteur {
         }
 
         let (source, destination) = trouverLieux(dans: texte, lieux: lieux)
-        let verbeTransport = ["je prends", "j'emmene", "jemmene", "j'emporte", "jemporte", "je pars", "je transfere", "j'amene", "jamene"]
+        // Radicaux : couvrent « je déplace », « j'ai déplacé », « tu peux
+        // transférer », « j'ai ramené »…
+        let verbeTransport = ["je prends", "j'emmene", "jemmene", "j'emporte", "jemporte", "je pars",
+                              "deplac", "transfer", "bouge", "ramene", "amene"]
             .contains { texte.contains($0) }
         let estReception = ["recu", "achete", "ajoute", "rajoute", "recupere", "commande"]
             .contains(where: texte.contains)

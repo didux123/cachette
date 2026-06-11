@@ -48,6 +48,19 @@ struct CommandeInterpreteurTests {
 
     // MARK: - Actions simples
 
+    @Test func jaiDeplaceDeAVersA() {
+        #expect(interpreter("j'ai déplacé 2 stylos de chez moi à chez mes parents") == [.transfert(
+            produit: stylos.id, source: chezMoi.id, destination: parents.id, quantite: 2
+        )])
+    }
+
+    @Test func deplacerSansDestinationVaSurMoi() {
+        // « j'ai déplacé … de chez moi » tout court → le pochon (Sur moi).
+        #expect(interpreter("j'ai déplacé 1 cathéter de chez moi") == [.transfert(
+            produit: catheters.id, source: chezMoi.id, destination: surMoi.id, quantite: 1
+        )])
+    }
+
     @Test func laPhraseExempleDeMaxence() {
         let intentions = interpreter("Je prends 3 cathéters de chez moi pour aller chez mes parents")
         #expect(intentions == [.transfert(
