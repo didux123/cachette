@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import BackgroundTasks
+import TipKit
 
 @main
 struct CachetteApp: App {
@@ -15,6 +16,7 @@ struct CachetteApp: App {
             assertionFailure("Échec du seed des lieux par défaut : \(error)")
         }
         Self.enregistrerTacheBDPM()
+        try? Tips.configure([.displayFrequency(.immediate)])
     }
 
     var body: some Scene {

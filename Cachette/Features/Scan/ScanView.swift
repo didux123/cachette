@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 
 /// Résultat d'un scan prêt à être confirmé par l'utilisateur.
 struct ResultatScan: Identifiable {
@@ -41,7 +42,9 @@ struct ScanView: View {
             )
             .ignoresSafeArea(edges: .bottom)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 10) {
+                TipView(TipScanner())
+                    .padding(.horizontal)
                 Text("Vise le petit carré (Datamatrix) de la boîte")
                     .font(CachetteTypography.corps)
                     .padding(.horizontal, 16)

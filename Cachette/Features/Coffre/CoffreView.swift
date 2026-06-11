@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import TipKit
 import UniformTypeIdentifiers
 
 /// Coffre à documents (P0-7) : ordonnances et comptes-rendus, stockés
@@ -84,7 +85,9 @@ struct CoffreView: View {
     // MARK: - Contenu
 
     private var contenu: some View {
-        Group {
+        VStack(spacing: 0) {
+            TipView(TipCoffre())
+                .padding(.horizontal)
             if documents.isEmpty {
                 emptyState
             } else {

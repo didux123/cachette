@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 
 /// Onglet « Réserves » : le stock, par lieu ou en vue totale.
 struct InventaireView: View {
@@ -12,6 +13,9 @@ struct InventaireView: View {
     @State private var creationProduitPresentee = false
     @State private var historiquePresente = false
     @State private var jeParsPresente = false
+    @State private var reassortPresente = false
+    /// Produit fraîchement créé : on propose aussitôt d'en ranger le stock.
+    @State private var produitPourRangement: Produit?
     @State private var messageErreur: String?
 
     private var produitsVisibles: [Produit] {
@@ -31,6 +35,8 @@ struct InventaireView: View {
             VStack(spacing: 0) {
                 MascotteBanner(etat: etatMascotte)
                     .padding(.top, 4)
+                TipView(TipPucesLieux())
+                    .padding(.horizontal)
                 selecteurLieu
                 if produitsVisibles.isEmpty {
                     emptyState
@@ -61,20 +67,39 @@ struct InventaireView: View {
                     } label: {
                         Label("Je pars…", systemImage: "figure.walk.departure")
                     }
+                    .popoverTip(TipJePars())
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        creationProduitPresentee = true
+                    Menu {
+                        Button {
+                            reassortPresente = true
+                        } label: {
+                            Label("J'ai reçu (réassort)", systemImage: "shippingbox.and.arrow.backward")
+                        }
+                        Button {
+                            creationProduitPresentee = true
+                        } label: {
+                            Label("Nouveau produit à suivre", systemImage: "plus.square.on.square")
+                        }
                     } label: {
-                        Label("Ajouter un produit", systemImage: "plus")
+                        Label("Ajouter", systemImage: "plus")
                     }
+                    .popoverTip(TipAjouter())
                 }
             }
             .sheet(isPresented: $jeParsPresente) {
                 JeParsView()
             }
+            .sheet(isPresented: $reassortPresente) {
+                ReassortSheet()
+            }
             .sheet(isPresented: $creationProduitPresentee) {
-                ProduitFormView(lieuInitial: lieuSelectionne)
+                ProduitFormView { produit in
+                    produitPourRangement = produit
+                }
+            }
+            .sheet(item: $produitPourRangement) { produit in
+                AjoutStockSheetView(produit: produit)
             }
             .sheet(isPresented: $historiquePresente) {
                 HistoriqueView()
@@ -109,6 +134,9 @@ struct InventaireView: View {
 
     private var listeProduits: some View {
         List {
+            TipView(TipPlusMoins())
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             ForEach(produitsVisibles) { produit in
                 NavigationLink {
                     ProduitDetailView(produit: produit)

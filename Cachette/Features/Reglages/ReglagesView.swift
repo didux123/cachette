@@ -12,6 +12,16 @@ struct ReglagesView: View {
         NavigationStack {
             Form {
                 Section {
+                    NavigationLink {
+                        ProduitsSuivisView()
+                    } label: {
+                        Label("Mes produits suivis", systemImage: "list.bullet.rectangle")
+                    }
+                } footer: {
+                    Text("La liste dans laquelle tu pioches pour les réassorts.")
+                }
+
+                Section {
                     if notificationsActivees {
                         Label {
                             Text("Notifications activées")

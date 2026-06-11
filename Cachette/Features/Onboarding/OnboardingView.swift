@@ -12,7 +12,11 @@ struct OnboardingView: View {
         TabView(selection: $page) {
             bienvenue.tag(0)
             disclaimer.tag(1)
-            notifications.tag(2)
+            CataloguePage {
+                withAnimation { page = 3 }
+            }
+            .tag(2)
+            notifications.tag(3)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .indexViewStyle(.page(backgroundDisplayMode: .always))
