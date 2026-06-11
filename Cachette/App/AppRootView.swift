@@ -13,7 +13,7 @@ struct AppRootView: View {
                 ScanView()
             }
             Tab("Coffre", systemImage: "lock.doc.fill") {
-                PlaceholderScreen(titre: "Coffre", message: "Tes ordonnances, toujours sur toi.")
+                CoffreView()
             }
             Tab("Réglages", systemImage: "gearshape.fill") {
                 ReglagesView()
