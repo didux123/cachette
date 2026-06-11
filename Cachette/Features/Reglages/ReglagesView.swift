@@ -5,6 +5,8 @@ struct ReglagesView: View {
     private var fenetrePeremption = ReglagesCles.fenetrePeremptionDefaut
     @AppStorage(ReglagesCles.notificationsActivees)
     private var notificationsActivees = false
+    @AppStorage("coffreVerrouActive")
+    private var verrouActive = true
 
     var body: some View {
         NavigationStack {
@@ -37,6 +39,14 @@ struct ReglagesView: View {
                     Text("Alertes")
                 } footer: {
                     Text("Le seuil de stock bas se règle produit par produit, sur sa fiche. Tout est local : aucune donnée ne quitte ton téléphone.")
+                }
+
+                Section {
+                    Toggle("Verrouiller le coffre (Face ID)", isOn: $verrouActive)
+                } header: {
+                    Text("Coffre")
+                } footer: {
+                    Text("Les documents restent chiffrés sur ton téléphone dans tous les cas.")
                 }
 
                 Section("À propos") {
