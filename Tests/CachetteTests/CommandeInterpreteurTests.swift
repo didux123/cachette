@@ -98,6 +98,34 @@ struct CommandeInterpreteurTests {
         )])
     }
 
+    // MARK: - Fautes de frappe
+
+    @Test func uneFauteDOrthographeEstToleree() {
+        // « cathétres » (e manquant) et « bandellettes » (double l).
+        #expect(interpreter("j'ai utilisé 2 cathétres") == [
+            .usage(produit: catheters.id, lieu: nil, quantite: 2)
+        ])
+        #expect(interpreter("j'ai reçu 5 bandellettes chez moi") == [
+            .reception(produit: bandelettes.id, lieu: chezMoi.id, quantite: 5)
+        ])
+    }
+
+    @Test func deuxFautesSurUnMotLongPassent() {
+        // « catétere » : h manquant + e final en trop = distance 2 sur 8 lettres.
+        #expect(interpreter("j'ai pris 1 catétere") == [
+            .usage(produit: catheters.id, lieu: nil, quantite: 1)
+        ])
+    }
+
+    @Test func lesMotsCourtsRestentExacts() {
+        // Pas de tolérance sous 4 lettres : « pmpe » ne doit pas matcher au hasard.
+        if case .incomprise = interpreter("j'ai utilisé 2 pmp").first {
+            // attendu
+        } else {
+            Issue.record("Un mot court trop différent ne doit pas matcher")
+        }
+    }
+
     @Test func leNomLePlusSpecifiqueGagne() {
         // « stylo insuline rapide » : le produit complet matche (3 mots),
         // « Pompes à insuline » ne doit pas voler le mot « insuline ».

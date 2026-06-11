@@ -141,9 +141,14 @@ nonisolated enum CommandeInterpreteur {
             let significatifs = motsNom.filter { !motsVides.contains($0) && $0.count > 2 }
             let cibles = Set(significatifs.isEmpty ? motsNom : significatifs)
 
-            let indices = mots.indices.filter { cibles.contains(mots[$0]) }
+            let indices = mots.indices.filter { index in
+                cibles.contains { motsProches(mots[index], $0) }
+            }
             guard !indices.isEmpty else { continue }
-            let score = Set(indices.map { mots[$0] }).count
+            // Score = nombre de mots distincts du nom retrouvés dans la phrase.
+            let score = cibles.count { cible in
+                mots.contains { motsProches($0, cible) }
+            }
             candidats.append(CorrespondanceProduit(produit: produit, indices: indices, score: score))
         }
 
@@ -238,6 +243,37 @@ nonisolated enum CommandeInterpreteur {
         }
         if source?.id == destination?.id { destination = nil }
         return (source, destination)
+    }
+
+    // MARK: - Tolérance aux fautes de frappe
+
+    /// Deux mots sont « proches » si leur distance d'édition tient dans la
+    /// tolérance : 1 faute pour 4-6 lettres, 2 fautes dès 7 lettres, exact en
+    /// dessous. La première lettre doit correspondre (limite les faux amis).
+    static func motsProches(_ a: String, _ b: String) -> Bool {
+        if a == b { return true }
+        guard a.first == b.first else { return false }
+        let tolerance = max(a.count, b.count) >= 7 ? 2 : (min(a.count, b.count) >= 4 ? 1 : 0)
+        guard tolerance > 0, abs(a.count - b.count) <= tolerance else { return false }
+        return distanceEdition(a, b) <= tolerance
+    }
+
+    /// Levenshtein classique (les mots comparés font < 30 caractères).
+    private static func distanceEdition(_ a: String, _ b: String) -> Int {
+        let lettresA = Array(a), lettresB = Array(b)
+        var precedente = Array(0...lettresB.count)
+        var courante = [Int](repeating: 0, count: lettresB.count + 1)
+
+        for (i, lettreA) in lettresA.enumerated() {
+            courante[0] = i + 1
+            for (j, lettreB) in lettresB.enumerated() {
+                courante[j + 1] = lettreA == lettreB
+                    ? precedente[j]
+                    : 1 + min(precedente[j], precedente[j + 1], courante[j])
+            }
+            swap(&precedente, &courante)
+        }
+        return precedente[lettresB.count]
     }
 
     // MARK: - Nombres
