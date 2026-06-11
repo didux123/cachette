@@ -7,7 +7,7 @@ struct AppRootView: View {
                 InventaireView()
             }
             Tab("Scanner", systemImage: "barcode.viewfinder") {
-                PlaceholderScreen(titre: "Scanner", message: "Le scan des boîtes arrive bientôt.")
+                ScanView()
             }
             Tab("Coffre", systemImage: "lock.doc.fill") {
                 PlaceholderScreen(titre: "Coffre", message: "Tes ordonnances, toujours sur toi.")
