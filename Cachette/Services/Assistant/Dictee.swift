@@ -65,8 +65,12 @@ final class Dictee {
                 requete.requiresOnDeviceRecognition = true
             }
 
-            entree.installTap(onBus: 0, bufferSize: 1024, format: format) { tampon, _ in
-                requete.append(tampon)
+            // ⚠️ Ce tap s'exécute sur le thread audio : la closure doit être
+            // explicitement @Sendable, sinon elle hérite de l'isolation
+            // MainActor et le runtime trappe (EXC_BREAKPOINT) au premier buffer.
+            nonisolated(unsafe) let requeteAudio = requete
+            entree.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable tampon, _ in
+                requeteAudio.append(tampon)
             }
             moteur.prepare()
             try moteur.start()
@@ -77,13 +81,17 @@ final class Dictee {
             self.enEcoute = true
             self.messageErreur = nil
 
-            tache = reconnaisseur.recognitionTask(with: requete) { [weak self] resultat, erreur in
+            // Callback livré sur une file de la reconnaissance vocale : on
+            // extrait des valeurs simples (Sendable) AVANT de revenir au main.
+            tache = reconnaisseur.recognitionTask(with: requete) { @Sendable [weak self] resultat, erreur in
+                let texte = resultat?.bestTranscription.formattedString
+                let estTermine = erreur != nil || (resultat?.isFinal ?? false)
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    if let resultat {
-                        self.transcription = resultat.bestTranscription.formattedString
+                    if let texte {
+                        self.transcription = texte
                     }
-                    if erreur != nil || (resultat?.isFinal ?? false) {
+                    if estTermine {
                         self.arreter()
                     }
                 }

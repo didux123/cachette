@@ -292,6 +292,9 @@ struct TutorielOverlay: View {
             maxHeight: .infinity,
             alignment: cibleEnHaut ? .bottom : .top
         )
-        .padding(.vertical, 60)
+        // L'overlay ignore les safe areas : la marge basse doit passer
+        // au-dessus de la barre d'onglets (~83 pt avec l'indicateur home).
+        .padding(.top, 64)
+        .padding(.bottom, 112)
     }
 }
