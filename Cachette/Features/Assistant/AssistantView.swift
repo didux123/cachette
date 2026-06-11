@@ -139,45 +139,90 @@ struct AssistantView: View {
     // MARK: - Saisie
 
     private var barreSaisie: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             if let erreur = dictee.messageErreur {
-                Text(erreur)
+                Label(erreur, systemImage: "exclamationmark.bubble")
                     .font(CachetteTypography.legende)
                     .foregroundStyle(CachetteColors.terracotta)
+                    .padding(.horizontal, 16)
+                    .transition(.opacity)
             }
-            HStack(spacing: 10) {
-                TextField(
-                    dictee.enEcoute ? "Je t'écoute…" : "Écris ou dicte ta phrase…",
-                    text: $saisie,
-                    axis: .vertical
-                )
-                .textFieldStyle(.roundedBorder)
-                .focused($champFocalise)
-                .onSubmit { envoyer() }
 
+            HStack(spacing: 10) {
+                // Champ en capsule, fond clair, liseré discret.
+                HStack(spacing: 8) {
+                    TextField(
+                        dictee.enEcoute ? "Je t'écoute… 🎙️" : "Écris ou dicte ta phrase…",
+                        text: $saisie,
+                        axis: .vertical
+                    )
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...4)
+                    .font(CachetteTypography.corps)
+                    .focused($champFocalise)
+                    .onSubmit { envoyer() }
+
+                    if !saisie.isEmpty {
+                        Button {
+                            saisie = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .accessibilityLabel("Effacer")
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color(.systemBackground), in: .rect(cornerRadius: 22))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22)
+                        .strokeBorder(
+                            dictee.enEcoute
+                                ? CachetteColors.terracotta.opacity(0.6)
+                                : CachetteColors.brunNoisette.opacity(0.15),
+                            lineWidth: dictee.enEcoute ? 1.6 : 1
+                        )
+                }
+
+                // Micro : rond plein, terracotta quand il écoute.
                 Button {
                     dictee.basculer()
                 } label: {
-                    Image(systemName: dictee.enEcoute ? "mic.fill" : "mic")
-                        .font(.title2)
-                        .foregroundStyle(dictee.enEcoute ? CachetteColors.terracotta : CachetteColors.rouxCachette)
+                    Image(systemName: dictee.enEcoute ? "stop.fill" : "mic.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 42, height: 42)
+                        .background(
+                            dictee.enEcoute ? CachetteColors.terracotta : CachetteColors.rouxCachette,
+                            in: .circle
+                        )
                         .symbolEffect(.pulse, isActive: dictee.enEcoute)
                 }
                 .accessibilityLabel(dictee.enEcoute ? "Arrêter la dictée" : "Dicter")
 
-                Button {
-                    envoyer()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(CachetteColors.rouxCachette)
+                // Envoi : n'apparaît que quand il y a quelque chose à envoyer.
+                if !saisie.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Button {
+                        envoyer()
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 42, height: 42)
+                            .background(CachetteColors.vertSauge, in: .circle)
+                    }
+                    .accessibilityLabel("Envoyer")
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .disabled(saisie.trimmingCharacters(in: .whitespaces).isEmpty)
-                .accessibilityLabel("Envoyer")
             }
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 10)
         }
-        .background(.thinMaterial)
+        .animation(.spring(duration: 0.25), value: saisie.isEmpty)
+        .animation(.spring(duration: 0.25), value: dictee.enEcoute)
+        .background(.bar)
     }
 
     // MARK: - Logique

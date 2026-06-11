@@ -24,6 +24,8 @@ final class Dictee {
     }
 
     func demarrer() async {
+        guard !enEcoute else { return }
+
         let statut = await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
@@ -43,18 +45,26 @@ final class Dictee {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let moteur = AVAudioEngine()
+            let entree = moteur.inputNode
+            let format = entree.outputFormat(forBus: 0)
+            // Sans entrée micro réelle (simulateur, micro occupé), le format
+            // vaut 0 Hz : installer le tap ferait planter l'app.
+            guard format.sampleRate > 0, format.channelCount > 0 else {
+                messageErreur = "Aucun micro utilisable ici — écris ta phrase au clavier."
+                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                return
+            }
+
             let requete = SFSpeechAudioBufferRecognitionRequest()
             requete.shouldReportPartialResults = true
             if reconnaisseur.supportsOnDeviceRecognition {
                 requete.requiresOnDeviceRecognition = true
             }
 
-            let entree = moteur.inputNode
-            let format = entree.outputFormat(forBus: 0)
             entree.installTap(onBus: 0, bufferSize: 1024, format: format) { tampon, _ in
                 requete.append(tampon)
             }

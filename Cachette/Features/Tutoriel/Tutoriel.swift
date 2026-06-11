@@ -90,7 +90,7 @@ enum EtapeTuto: Int, CaseIterable {
         case .ouvrirFiche:
             "Touche la ligne : lots, péremptions, historique, transferts… tout y est. Reviens quand tu as vu !"
         case .fin:
-            "En haut : ➕ réassorts et nouveaux produits, 🚶 préparer un départ.\nEn bas : 📷 scanner les boîtes, 🔒 ton coffre à ordonnances."
+            "En haut : ➕ réassorts et nouveaux produits, 🚶 préparer un départ.\nEn bas : 🎙️ l'assistant pour tout gérer à la voix, 🔒 ton coffre à ordonnances."
         }
     }
 
