@@ -4,7 +4,7 @@ struct AppRootView: View {
     var body: some View {
         TabView {
             Tab("Réserves", systemImage: "shippingbox.fill") {
-                PlaceholderScreen(titre: "Réserves", message: "Ton stock multi-lieux arrive bientôt.")
+                LieuxListView()
             }
             Tab("Scanner", systemImage: "barcode.viewfinder") {
                 PlaceholderScreen(titre: "Scanner", message: "Le scan des boîtes arrive bientôt.")
