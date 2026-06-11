@@ -1,11 +1,12 @@
 import Foundation
 
 /// Interpréteur local de commandes en français naturel — aucun réseau,
-/// aucune IA distante. Comprend :
-/// - transfert : « je prends 3 cathéters de chez moi pour aller chez mes parents »
-/// - usage     : « j'ai utilisé 2 bandelettes », « j'utilise un stylo »
-/// - réception : « j'ai reçu 5 capteurs », « ajoute 2 boîtes de doliprane chez moi »
-/// - stock     : « combien il me reste de cathéters ? »
+/// aucune IA distante, compatible tout iPhone. Comprend PLUSIEURS mouvements
+/// dans une même phrase :
+/// - « j'ai pris 1 cathéter, 2 pompes et 1 stylo » → 3 usages
+/// - « je prends 3 cathéters de chez moi pour aller chez mes parents » → transfert
+/// - « j'ai reçu 5 capteurs chez moi » → réception
+/// - « combien il me reste de cathéters ? » → question de stock
 nonisolated enum IntentionAssistant: Equatable {
     case transfert(produit: UUID, source: UUID, destination: UUID, quantite: Int)
     case usage(produit: UUID, lieu: UUID?, quantite: Int)
@@ -27,61 +28,73 @@ nonisolated struct LieuRef {
 
 nonisolated enum CommandeInterpreteur {
 
+    /// Une phrase → une liste d'actions (jamais vide : `.incomprise` en repli).
     static func interpreter(
         _ phrase: String,
         produits: [ProduitRef],
         lieux: [LieuRef]
-    ) -> IntentionAssistant {
+    ) -> [IntentionAssistant] {
         let texte = normaliser(phrase)
+        let mots = tokeniser(texte)
 
-        guard let produit = trouverProduit(dans: texte, produits: produits) else {
-            return .incomprise(raison: produits.isEmpty
+        let correspondances = trouverProduits(mots: mots, produits: produits)
+        guard !correspondances.isEmpty else {
+            return [.incomprise(raison: produits.isEmpty
                 ? "Ta liste de produits suivis est vide — ajoute-en d'abord."
-                : "Je n'ai pas reconnu de produit de ta liste dans la phrase.")
+                : "Je n'ai pas reconnu de produit de ta liste dans la phrase.")]
         }
 
         // Question de stock ?
         if texte.contains("combien") || texte.contains("reste") || texte.contains("stock") {
-            return .stock(produit: produit.id)
+            return correspondances.map { .stock(produit: $0.produit.id) }
         }
 
-        let quantite = extraireQuantite(de: texte) ?? 1
         let (source, destination) = trouverLieux(dans: texte, lieux: lieux)
-
-        // Deux lieux (ou un départ + « je prends/j'emmène/je pars ») = transfert.
         let verbeTransport = ["je prends", "j'emmene", "jemmene", "j'emporte", "jemporte", "je pars", "je transfere", "j'amene", "jamene"]
             .contains { texte.contains($0) }
+        let estReception = ["recu", "achete", "ajoute", "rajoute", "recupere", "commande"]
+            .contains(where: texte.contains)
+        let estUsage = ["utilise", "consomme", "pris", "use", "pose", "termine", "fini"]
+            .contains(where: texte.contains)
 
-        if let source, let destination {
-            return .transfert(produit: produit.id, source: source.id, destination: destination.id, quantite: quantite)
+        // Le « moule » d'action, partagé par tous les produits de la phrase.
+        func intention(produit: UUID, quantite: Int) -> IntentionAssistant? {
+            if let source, let destination {
+                return .transfert(produit: produit, source: source.id, destination: destination.id, quantite: quantite)
+            }
+            if verbeTransport, let source,
+               let surMoi = lieux.first(where: \.estSurMoi), surMoi.id != source.id {
+                return .transfert(produit: produit, source: source.id, destination: surMoi.id, quantite: quantite)
+            }
+            if verbeTransport, let destination,
+               let surMoi = lieux.first(where: \.estSurMoi), surMoi.id != destination.id {
+                return .transfert(produit: produit, source: surMoi.id, destination: destination.id, quantite: quantite)
+            }
+            if estReception {
+                return .reception(produit: produit, lieu: (source ?? destination)?.id, quantite: quantite)
+            }
+            if estUsage {
+                return .usage(produit: produit, lieu: (source ?? destination)?.id, quantite: quantite)
+            }
+            return nil
         }
-        if verbeTransport, let source {
-            // Destination implicite : « Sur moi » (le pochon qui voyage).
-            if let surMoi = lieux.first(where: \.estSurMoi), surMoi.id != source.id {
-                return .transfert(produit: produit.id, source: source.id, destination: surMoi.id, quantite: quantite)
+
+        var actions: [IntentionAssistant] = []
+        for (index, correspondance) in correspondances.enumerated() {
+            let quantite = quantite(pour: correspondance, precedente: index > 0 ? correspondances[index - 1] : nil, mots: mots)
+            if let action = intention(produit: correspondance.produit.id, quantite: quantite) {
+                actions.append(action)
             }
         }
-        if verbeTransport, let destination {
-            // « j'emmène 3 stylos chez mes parents » : source implicite = Sur moi.
-            if let surMoi = lieux.first(where: \.estSurMoi), surMoi.id != destination.id {
-                return .transfert(produit: produit.id, source: surMoi.id, destination: destination.id, quantite: quantite)
-            }
-        }
 
-        // Réception ?
-        if ["recu", "reçu", "achete", "ajoute", "rajoute", "recupere", "commande"].contains(where: texte.contains) {
-            return .reception(produit: produit.id, lieu: (source ?? destination)?.id, quantite: quantite)
+        guard !actions.isEmpty else {
+            let noms = correspondances.map(\.produit.nom).joined(separator: ", ")
+            return [.incomprise(raison: "J'ai reconnu « \(noms) » mais pas l'action. Essaie « j'ai utilisé… », « j'ai reçu… » ou « je prends… de… pour… ».")]
         }
-
-        // Usage ?
-        if ["utilise", "consomme", "pris", "use", "pose", "termine", "fini"].contains(where: texte.contains) {
-            return .usage(produit: produit.id, lieu: (source ?? destination)?.id, quantite: quantite)
-        }
-
-        return .incomprise(raison: "J'ai reconnu « \(produit.nom) » mais pas l'action. Essaie « j'ai utilisé… », « j'ai reçu… » ou « je prends… de… pour… ».")
+        return actions
     }
 
-    // MARK: - Normalisation
+    // MARK: - Normalisation & découpage
 
     static func normaliser(_ texte: String) -> String {
         texte
@@ -89,36 +102,84 @@ nonisolated enum CommandeInterpreteur {
             .lowercased()
     }
 
-    private static func tokens(_ texte: String) -> [String] {
+    /// Pluriel naïf : suffit pour « cathéters » → « cathéter ».
+    /// Les mots-nombres sont préservés (« deux » ne doit pas devenir « deu »).
+    private static func singulier(_ mot: String) -> String {
+        guard nombresEnLettres[mot] == nil else { return mot }
+        return mot.count > 3 && (mot.hasSuffix("s") || mot.hasSuffix("x")) ? String(mot.dropLast()) : mot
+    }
+
+    /// Mots de la phrase, dans l'ordre, au singulier.
+    private static func tokeniser(_ texte: String) -> [String] {
         texte.components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
             .map(singulier)
     }
 
-    /// Pluriel naïf : suffit pour « cathéters » → « cathéter ».
-    private static func singulier(_ mot: String) -> String {
-        mot.count > 3 && (mot.hasSuffix("s") || mot.hasSuffix("x")) ? String(mot.dropLast()) : mot
+    // MARK: - Produits (multi)
+
+    nonisolated struct CorrespondanceProduit {
+        let produit: ProduitRef
+        /// Indices des mots de la phrase qui appartiennent au nom du produit.
+        let indices: [Int]
+        let score: Int
+
+        var premierIndice: Int { indices.min() ?? 0 }
+        var dernierIndice: Int { indices.max() ?? 0 }
     }
 
-    // MARK: - Entités
+    private static let motsVides: Set<String> = ["de", "le", "la", "les", "un", "une", "des", "du", "boite"]
 
-    /// Produit dont le nom partage le plus de tokens significatifs avec la phrase.
-    static func trouverProduit(dans texte: String, produits: [ProduitRef]) -> ProduitRef? {
-        let motsPhrase = Set(tokens(texte))
-        let vides: Set<String> = ["de", "le", "la", "les", "un", "une", "des", "du", "boite"]
+    /// Tous les produits cités, chacun ancré à sa position dans la phrase.
+    /// En cas de chevauchement (« stylo » qui matche deux stylos), le nom le
+    /// plus spécifique (meilleur score) gagne, l'autre est écarté.
+    static func trouverProduits(mots: [String], produits: [ProduitRef]) -> [CorrespondanceProduit] {
+        var candidats: [CorrespondanceProduit] = []
 
-        var meilleur: (produit: ProduitRef, score: Int)?
         for produit in produits {
-            let motsNom = tokens(normaliser(produit.nom))
-            let significatifs = motsNom.filter { !vides.contains($0) && $0.count > 2 }
-            let cibles = significatifs.isEmpty ? motsNom : significatifs
-            let score = cibles.count(where: motsPhrase.contains)
-            if score > 0, score >= (meilleur?.score ?? 0) {
-                meilleur = (produit, score)
+            let motsNom = tokeniser(normaliser(produit.nom))
+            let significatifs = motsNom.filter { !motsVides.contains($0) && $0.count > 2 }
+            let cibles = Set(significatifs.isEmpty ? motsNom : significatifs)
+
+            let indices = mots.indices.filter { cibles.contains(mots[$0]) }
+            guard !indices.isEmpty else { continue }
+            let score = Set(indices.map { mots[$0] }).count
+            candidats.append(CorrespondanceProduit(produit: produit, indices: indices, score: score))
+        }
+
+        // Les plus spécifiques d'abord, puis on n'accepte que les disjoints.
+        candidats.sort {
+            $0.score != $1.score ? $0.score > $1.score : $0.produit.nom.count > $1.produit.nom.count
+        }
+        var indicesUtilises = Set<Int>()
+        var retenus: [CorrespondanceProduit] = []
+        for candidat in candidats {
+            guard indicesUtilises.isDisjoint(with: candidat.indices) else { continue }
+            indicesUtilises.formUnion(candidat.indices)
+            retenus.append(candidat)
+        }
+        return retenus.sorted { $0.premierIndice < $1.premierIndice }
+    }
+
+    /// La quantité d'un produit = le nombre le plus proche AVANT sa mention,
+    /// sans remonter au-delà du produit précédent (« 1 cathéter, 2 pompes »).
+    private static func quantite(
+        pour correspondance: CorrespondanceProduit,
+        precedente: CorrespondanceProduit?,
+        mots: [String]
+    ) -> Int {
+        let debut = precedente.map { $0.dernierIndice + 1 } ?? 0
+        let fin = correspondance.premierIndice
+        guard debut <= fin else { return 1 }
+        for index in stride(from: fin - 1, through: debut, by: -1) where index >= 0 {
+            if let nombre = nombre(depuis: mots[index]) {
+                return nombre
             }
         }
-        return meilleur?.produit
+        return 1
     }
+
+    // MARK: - Lieux
 
     /// Repère les lieux cités et leur rôle (source/destination) d'après le mot
     /// qui précède : « de/depuis » = départ, « vers/pour/aller/à/au » = arrivée.
@@ -150,8 +211,7 @@ nonisolated enum CommandeInterpreteur {
                 depart = plage.upperBound
             }
         }
-        // « chez mes parents » contient « chez moi » ? Non, mais des noms peuvent
-        // se chevaucher : on garde l'occurrence au nom le plus long par position.
+        // Noms qui se chevauchent à la même position : le plus long gagne.
         occurrences.sort { $0.position < $1.position }
         var filtrees: [Occurrence] = []
         for occurrence in occurrences {
@@ -180,7 +240,7 @@ nonisolated enum CommandeInterpreteur {
         return (source, destination)
     }
 
-    // MARK: - Quantité
+    // MARK: - Nombres
 
     private static let nombresEnLettres: [String: Int] = [
         "un": 1, "une": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5,
@@ -188,16 +248,10 @@ nonisolated enum CommandeInterpreteur {
         "onze": 11, "douze": 12, "quinze": 15, "vingt": 20, "trente": 30,
     ]
 
-    static func extraireQuantite(de texte: String) -> Int? {
-        if let correspondance = texte.firstMatch(of: /\b(\d{1,4})\b/),
-           let nombre = Int(correspondance.1) {
+    private static func nombre(depuis mot: String) -> Int? {
+        if let nombre = Int(mot), (1...9999).contains(nombre) {
             return nombre
         }
-        for mot in texte.components(separatedBy: CharacterSet.alphanumerics.inverted) {
-            if let nombre = nombresEnLettres[mot] {
-                return nombre
-            }
-        }
-        return nil
+        return nombresEnLettres[mot]
     }
 }

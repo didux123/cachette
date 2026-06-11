@@ -20,8 +20,9 @@ struct AssistantView: View {
         let id = UUID()
         let role: Role
         let texte: String
-        /// Action en attente de confirmation, portée par ce message.
-        var action: IntentionAssistant?
+        /// Actions en attente de confirmation, portées par ce message
+        /// (une phrase peut en contenir plusieurs).
+        var actions: [IntentionAssistant]?
     }
 
     var body: some View {
@@ -108,10 +109,10 @@ struct AssistantView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(message.texte)
                     .font(CachetteTypography.corps)
-                if let action = message.action {
+                if let actions = message.actions {
                     HStack {
-                        Button("Confirmer") {
-                            confirmer(action, messageID: message.id)
+                        Button(actions.count > 1 ? "Tout confirmer" : "Confirmer") {
+                            confirmer(actions, messageID: message.id)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(CachetteColors.vertSauge)
@@ -187,79 +188,91 @@ struct AssistantView: View {
         saisie = ""
         messages.append(MessageChat(role: .utilisateur, texte: phrase))
 
-        let intention = CommandeInterpreteur.interpreter(
+        let intentions = CommandeInterpreteur.interpreter(
             phrase,
             produits: produits.map { ProduitRef(id: $0.id, nom: $0.nom) },
             lieux: lieux.map { LieuRef(id: $0.id, nom: $0.nom, estSurMoi: $0.estSurMoi) }
         )
 
-        switch intention {
-        case .stock(let produitID):
-            messages.append(MessageChat(role: .assistant, texte: reponseStock(produitID)))
-        case .incomprise(let raison):
-            messages.append(MessageChat(role: .assistant, texte: "🤔 \(raison)"))
-        default:
-            messages.append(MessageChat(
-                role: .assistant,
-                texte: resume(intention),
-                action: intention
-            ))
+        // Les questions de stock et les incompréhensions se répondent direct ;
+        // les actions s'accumulent dans UNE proposition à confirmer.
+        var actionsAConfirmer: [IntentionAssistant] = []
+        for intention in intentions {
+            switch intention {
+            case .stock(let produitID):
+                messages.append(MessageChat(role: .assistant, texte: reponseStock(produitID)))
+            case .incomprise(let raison):
+                messages.append(MessageChat(role: .assistant, texte: "🤔 \(raison)"))
+            default:
+                actionsAConfirmer.append(intention)
+            }
+        }
+
+        if !actionsAConfirmer.isEmpty {
+            let lignes = actionsAConfirmer.map(resume).joined(separator: "\n")
+            let question = actionsAConfirmer.count > 1
+                ? "\(lignes)\n\nJe fais ces \(actionsAConfirmer.count) mouvements ?"
+                : "\(lignes)\n\nJe confirme ?"
+            messages.append(MessageChat(role: .assistant, texte: question, actions: actionsAConfirmer))
         }
     }
 
     private func resume(_ intention: IntentionAssistant) -> String {
         switch intention {
         case .transfert(let produitID, let sourceID, let destinationID, let quantite):
-            "🚚 Je transfère \(quantite) × \(nomProduit(produitID)) de \(nomLieu(sourceID)) vers \(nomLieu(destinationID)). Je confirme ?"
+            "🚚 \(quantite) × \(nomProduit(produitID)) : \(nomLieu(sourceID)) → \(nomLieu(destinationID))"
         case .usage(let produitID, let lieuID, let quantite):
-            "✏️ Je retire \(quantite) × \(nomProduit(produitID))\(lieuID.map { " de \(nomLieu($0))" } ?? "") (utilisé). Je confirme ?"
+            "✏️ \(quantite) × \(nomProduit(produitID)) utilisé(s)\(lieuID.map { " — \(nomLieu($0))" } ?? "")"
         case .reception(let produitID, let lieuID, let quantite):
-            "📦 J'ajoute \(quantite) × \(nomProduit(produitID))\(lieuID.map { " dans \(nomLieu($0))" } ?? ""). Je confirme ?"
+            "📦 +\(quantite) × \(nomProduit(produitID))\(lieuID.map { " — \(nomLieu($0))" } ?? "")"
         default:
             ""
         }
     }
 
-    private func confirmer(_ intention: IntentionAssistant, messageID: UUID) {
+    private func confirmer(_ intentions: [IntentionAssistant], messageID: UUID) {
         retirerAction(messageID: messageID)
+        var bilans: [String] = []
+
+        for intention in intentions {
+            do {
+                if let bilan = try executer(intention) {
+                    bilans.append("✅ \(bilan)")
+                }
+            } catch {
+                bilans.append("❌ \(resume(intention)) — \(error.localizedDescription)")
+            }
+        }
+        messages.append(MessageChat(role: .assistant, texte: bilans.joined(separator: "\n")))
+    }
+
+    /// Exécute une action confirmée et renvoie une ligne de bilan.
+    private func executer(_ intention: IntentionAssistant) throws -> String? {
         let stock = StockService(contexte: contexte)
         let transfert = TransfertService(contexte: contexte)
 
-        do {
-            switch intention {
-            case .transfert(let produitID, let sourceID, let destinationID, let quantite):
-                guard let produit = produit(produitID),
-                      let source = lieu(sourceID),
-                      let destination = lieu(destinationID) else { return }
-                try transfert.transferer(produit: produit, de: source, vers: destination, quantite: quantite)
-                messages.append(MessageChat(
-                    role: .assistant,
-                    texte: "C'est fait ! \(nomLieu(sourceID)) : \(produit.stock(dans: source)) · \(nomLieu(destinationID)) : \(produit.stock(dans: destination)) 🐿️"
-                ))
+        switch intention {
+        case .transfert(let produitID, let sourceID, let destinationID, let quantite):
+            guard let produit = produit(produitID),
+                  let source = lieu(sourceID),
+                  let destination = lieu(destinationID) else { return nil }
+            try transfert.transferer(produit: produit, de: source, vers: destination, quantite: quantite)
+            return "\(produit.nom) : \(source.nom) \(produit.stock(dans: source)) · \(destination.nom) \(produit.stock(dans: destination))"
 
-            case .usage(let produitID, let lieuID, let quantite):
-                guard let produit = produit(produitID),
-                      let lieu = lieuID.flatMap(lieu) ?? lieuLePlusFourni(pour: produit) else { return }
-                try stock.retirerStock(produit: produit, lieu: lieu, quantite: quantite, motif: .usage)
-                messages.append(MessageChat(
-                    role: .assistant,
-                    texte: "Noté ! Il reste \(produit.stockTotal) × \(produit.nom) au total."
-                ))
+        case .usage(let produitID, let lieuID, let quantite):
+            guard let produit = produit(produitID),
+                  let lieu = lieuID.flatMap(lieu) ?? lieuLePlusFourni(pour: produit) else { return nil }
+            try stock.retirerStock(produit: produit, lieu: lieu, quantite: quantite, motif: .usage)
+            return "\(produit.nom) : reste \(produit.stockTotal) au total"
 
-            case .reception(let produitID, let lieuID, let quantite):
-                guard let produit = produit(produitID),
-                      let lieu = lieuID.flatMap(lieu) ?? lieux.first(where: { !$0.estSurMoi }) else { return }
-                try stock.ajouterStock(produit: produit, lieu: lieu, quantite: quantite, motif: .reception)
-                messages.append(MessageChat(
-                    role: .assistant,
-                    texte: "Rangé dans \(lieu.nom) ! Stock total : \(produit.stockTotal) × \(produit.nom) 🎉"
-                ))
+        case .reception(let produitID, let lieuID, let quantite):
+            guard let produit = produit(produitID),
+                  let lieu = lieuID.flatMap(lieu) ?? lieux.first(where: { !$0.estSurMoi }) else { return nil }
+            try stock.ajouterStock(produit: produit, lieu: lieu, quantite: quantite, motif: .reception)
+            return "\(produit.nom) rangé dans \(lieu.nom) : \(produit.stockTotal) au total"
 
-            default:
-                break
-            }
-        } catch {
-            messages.append(MessageChat(role: .assistant, texte: "❌ \(error.localizedDescription)"))
+        default:
+            return nil
         }
     }
 
@@ -270,7 +283,7 @@ struct AssistantView: View {
 
     private func retirerAction(messageID: UUID) {
         if let index = messages.firstIndex(where: { $0.id == messageID }) {
-            messages[index].action = nil
+            messages[index].actions = nil
         }
     }
 
