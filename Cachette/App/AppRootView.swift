@@ -3,8 +3,17 @@ import SwiftUI
 struct AppRootView: View {
     @Environment(\.modelContext) private var contexte
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("onboardingTermine") private var onboardingTermine = false
 
     var body: some View {
+        if !onboardingTermine {
+            OnboardingView()
+        } else {
+            ongletsPrincipaux
+        }
+    }
+
+    private var ongletsPrincipaux: some View {
         TabView {
             Tab("Réserves", systemImage: "shippingbox.fill") {
                 InventaireView()

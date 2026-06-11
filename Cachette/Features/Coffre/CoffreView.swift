@@ -182,17 +182,9 @@ struct CoffreView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text("🐿️").font(.system(size: 64))
-            Text("Tes ordonnances, toujours sur toi.\nAjoute la première — photo ou PDF.")
-                .font(CachetteTypography.corps)
-                .foregroundStyle(CachetteColors.brunNoisette)
-                .multilineTextAlignment(.center)
-            Spacer()
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
+        MascotteEmptyState(
+            message: "Tes ordonnances, toujours sur toi.\nAjoute la première — photo ou PDF."
+        )
     }
 
     private func supprimer(_ document: DocumentItem) {
