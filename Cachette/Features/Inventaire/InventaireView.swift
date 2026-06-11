@@ -18,9 +18,18 @@ struct InventaireView: View {
         return produits.filter { $0.stock(dans: lieu) > 0 }
     }
 
+    @AppStorage(ReglagesCles.fenetrePeremptionJours)
+    private var fenetrePeremption = ReglagesCles.fenetrePeremptionDefaut
+
+    private var etatMascotte: MascotteState {
+        MascotteEngine.etat(produits: produits, fenetrePeremptionJours: fenetrePeremption)
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                MascotteBanner(etat: etatMascotte)
+                    .padding(.top, 4)
                 selecteurLieu
                 if produitsVisibles.isEmpty {
                     emptyState
@@ -106,24 +115,14 @@ struct InventaireView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Text("🐿️").font(.system(size: 64))
-            Text(lieuSelectionne == nil
-                 ? "Aucune réserve pour l'instant.\nOn ajoute ton premier produit ?"
-                 : "Rien dans cette cachette pour l'instant.")
-                .font(CachetteTypography.corps)
-                .foregroundStyle(CachetteColors.brunNoisette)
-                .multilineTextAlignment(.center)
-            Button("Ajouter un produit") {
-                creationProduitPresentee = true
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(CachetteColors.rouxCachette)
-            Spacer()
-            Spacer()
+        MascotteEmptyState(
+            message: lieuSelectionne == nil
+                ? "Aucune réserve pour l'instant.\nOn ajoute ton premier produit ?"
+                : "Rien dans cette cachette pour l'instant.",
+            boutonTitre: "Ajouter un produit"
+        ) {
+            creationProduitPresentee = true
         }
-        .frame(maxWidth: .infinity)
     }
 
     private func retirer(_ produit: Produit, de lieu: Lieu) {
