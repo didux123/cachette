@@ -39,7 +39,7 @@ targets:
         NSFaceIDUsageDescription: "Face ID protège l'accès à votre coffre à documents."
         NSMicrophoneUsageDescription: "Le micro permet de dicter tes mouvements de stock à l'assistant (« j'ai utilisé 2 bandelettes »). La voix est traitée localement."
         NSSpeechRecognitionUsageDescription: "La reconnaissance vocale transforme ta dictée en texte pour l'assistant. Tout reste sur ton téléphone."
-        BGTaskSchedulerPermittedTaskIdentifiers:
+        BGTaskSchedulerPermittedIdentifiers:
           - com.didux.cachette.bdpmRefresh
         UIBackgroundModes:
           - processing
@@ -47,6 +47,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.didux.cachette
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        TARGETED_DEVICE_FAMILY: "1"  # iPhone uniquement (évite l'exigence 4 orientations iPad)
 
   CachetteTests:
     type: bundle.unit-test

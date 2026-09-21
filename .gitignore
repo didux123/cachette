@@ -19,3 +19,10 @@ __pycache__/
 # Secrets éventuels
 *.p12
 *.mobileprovision
+
+# Secrets et config locale
+.env
+.env.*
+!.env.example
+*.xcconfig
+!Config/*.example.xcconfig
